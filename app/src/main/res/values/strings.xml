@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">SilentMyPhone</string>
+    <string name="choose_start_time">Mute start</string>
+    <string name="dialog_action">Next</string>
+    <string name="no_jobs_message">You don\'t have any mutes to show.</string>
+    <string name="daily">Check if you want to repeat on different days</string>
+    <string name="monday">Monday</string>
+    <string name="tuesday">Tuesday</string>
+    <string name="wednesday">Wednesday</string>
+    <string name="thursday">Thursay</string>
+    <string name="friday">Friday</string>
+    <string name="saturday">Saturday</string>
+    <string name="sunday">Sunday</string>
+    <string name="channel_name">my channel</string>
+    <string name="channel_description">channel description</string>
+</resources>
