@@ -35,7 +35,7 @@ public class JobsRepository {
         new updateAsyncTask(mJobsDao).execute(myJob);
     }
 
-    LiveData<MuteJob> getJobById(long id){
+    MuteJob getJobById(long id){
         return mJobsDao.getJobById(id);
     }
 

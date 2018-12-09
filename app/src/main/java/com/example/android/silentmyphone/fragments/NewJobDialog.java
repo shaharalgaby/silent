@@ -3,6 +3,7 @@ package com.example.android.silentmyphone.fragments;
 import android.annotation.SuppressLint;
 import android.app.Dialog;
 import android.app.DialogFragment;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.view.LayoutInflater;
@@ -13,21 +14,30 @@ import android.widget.CheckBox;
 import android.widget.NumberPicker;
 import android.widget.TimePicker;
 
+import com.example.android.silentmyphone.MuteJob;
+import com.example.android.silentmyphone.db.JobsViewModel;
+import com.example.android.silentmyphone.muteService.MuteJobsModel;
 import com.example.android.silentmyphone.utils.CalendarUtils;
 import com.example.android.silentmyphone.R;
+
+import java.util.Calendar;
 
 public class NewJobDialog extends DialogFragment {
 
     OnSetJobBtnClicked listener;
+    MuteJob job;
     CheckBox mIsRepeatCheckbox;
     CheckBox[] mDaysCheckBoxes;
+    JobsViewModel viewModel;
 
     public NewJobDialog(){}
 
     @SuppressLint("ValidFragment")
-    public NewJobDialog(OnSetJobBtnClicked listener){
+    public NewJobDialog(OnSetJobBtnClicked listener, MuteJob job, JobsViewModel viewModel){
         super();
         this.listener = listener;
+        this.job = job;
+        this.viewModel = viewModel;
     }
 
     @Override
@@ -101,12 +111,47 @@ public class NewJobDialog extends DialogFragment {
 
         Button setBtn = view.findViewById(R.id.set_job_button);
 
-        setBtn.setOnClickListener(view1 -> listener.onSetJobBtnClicked
-                (timePickerStart,timePickerEnd,mIsRepeatCheckbox.isChecked(),mDaysCheckBoxes,this));
+        if(job != null) {
+            //Updating view, so set fields.
+            Calendar calendarStart = Calendar.getInstance();
+            calendarStart.setTimeInMillis(job.getStartTime());
+            Calendar calendarEnd = Calendar.getInstance();
+            calendarEnd.setTimeInMillis(job.getEndTime());
+
+            if(Build.VERSION.SDK_INT < 23) {
+                timePickerStart.setCurrentHour(calendarStart.get(Calendar.HOUR_OF_DAY));
+                timePickerStart.setCurrentMinute(calendarStart.get(Calendar.MINUTE));
+                timePickerEnd.setCurrentHour(calendarEnd.get(Calendar.HOUR_OF_DAY));
+                timePickerEnd.setCurrentMinute(calendarEnd.get(Calendar.MINUTE));
+            } else {
+                timePickerStart.setHour(calendarStart.get(Calendar.HOUR_OF_DAY));
+                timePickerStart.setMinute(calendarStart.get(Calendar.MINUTE));
+                timePickerEnd.setHour(calendarEnd.get(Calendar.HOUR_OF_DAY));
+                timePickerEnd.setMinute(calendarEnd.get(Calendar.MINUTE));
+            }
+
+            if(job.getRepeatMode() == MuteJob.MODE_REPEAT) {
+                mIsRepeatCheckbox.setChecked(true);
+                for(int i = 0; i < mDaysCheckBoxes.length; i++) {
+                    mDaysCheckBoxes[i].setChecked(job.getRepeatDays()[i]);
+                }
+            }
+
+            setBtn.setText("Update");
+        }
+
+        setBtn.setOnClickListener(view1 -> {
+            if(job != null) {
+                MuteJobsModel.removeJob(job,viewModel,getContext());
+            }
+            listener.onSetJobBtnClicked
+                    (dayPickerStart.getValue(),dayPickerEnd.getValue(),
+                            timePickerStart,timePickerEnd,mIsRepeatCheckbox.isChecked(),mDaysCheckBoxes,this);
+        });
     }
 
     public interface OnSetJobBtnClicked{
-        void onSetJobBtnClicked(TimePicker start, TimePicker end, boolean isRepeat,
+        void onSetJobBtnClicked(int dayOffsetStart, int dayOffsetEnd, TimePicker start, TimePicker end, boolean isRepeat,
                                 CheckBox[] checkBoxes, NewJobDialog fragment);
     }
 

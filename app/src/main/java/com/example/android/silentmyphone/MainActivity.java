@@ -1,6 +1,7 @@
 package com.example.android.silentmyphone;
 
 import android.Manifest;
+import android.app.Activity;
 import android.app.FragmentManager;
 import android.app.NotificationManager;
 import android.arch.lifecycle.ViewModelProviders;
@@ -9,7 +10,10 @@ import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.support.annotation.NonNull;
+import android.support.annotation.RequiresPermission;
 import android.support.design.widget.FloatingActionButton;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.DefaultItemAnimator;
@@ -56,6 +60,31 @@ public class MainActivity extends AppCompatActivity implements JobsAdapter.OnJob
 
         checkForPermissions();
         NotificationsUtils.createNotificationChannel(this);
+        checkCalendarPermission();
+    }
+
+    void checkCalendarPermission() {
+        if (ActivityCompat.checkSelfPermission(getApplication(), Manifest.permission.READ_CALENDAR)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions
+                    (this,
+                            new String[]{Manifest.permission.READ_CALENDAR},
+                            200);
+        } else {
+            syncWithCalendar();
+            //ReadCalendar.readCalendar(this);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        switch (requestCode){
+            case 200:
+                syncWithCalendar();
+                //ReadCalendar.readCalendar(this);
+                break;
+        }
     }
 
     void initializeRecyclerView(){
@@ -87,13 +116,20 @@ public class MainActivity extends AppCompatActivity implements JobsAdapter.OnJob
         public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
             ArrayList<MuteJob> list = mAdapter.getmJobsList();
             MuteJob job = list.get(viewHolder.getAdapterPosition());
-            mViewModel.delete(job);
+            MuteJobsModel.removeJob(job,mViewModel,getApplicationContext());
         }
     };
 
     void initViewModel(){
         mViewModel = ViewModelProviders.of(this).get(JobsViewModel.class);
-        mViewModel.getAllJobs().observe(this, jobs -> mAdapter.setJobs(jobs));
+        mViewModel.getAllJobs().observe(this, jobs -> {
+            mAdapter.setJobs(jobs);
+            if(jobs.size() > 0) {
+                findViewById(R.id.no_jobs_message).setVisibility(View.GONE);
+            } else {
+                findViewById(R.id.no_jobs_message).setVisibility(View.VISIBLE);
+            }
+        });
     }
 
     void checkForPermissions(){
@@ -113,8 +149,10 @@ public class MainActivity extends AppCompatActivity implements JobsAdapter.OnJob
     }
 
     @Override
-    public void onJobClick() {
-
+    public void onJobClick(int position) {
+        MuteJob job = mAdapter.getmJobsList().get(position);
+        NewJobDialog newFragment = new NewJobDialog(this, job,mViewModel);
+        newFragment.show(fragmentManager, "datePicker");
     }
 
     public void addJobs(View view) {
@@ -122,15 +160,15 @@ public class MainActivity extends AppCompatActivity implements JobsAdapter.OnJob
     }
 
     void showAddJobDialog(){
-        NewJobDialog newFragment = new NewJobDialog(this);
+        NewJobDialog newFragment = new NewJobDialog(this, null,mViewModel);
         newFragment.show(fragmentManager, "datePicker");
     }
 
     @Override
-    public void onSetJobBtnClicked(TimePicker start, TimePicker end, boolean isChecked,
+    public void onSetJobBtnClicked(int startDayOffset, int endDayOffset, TimePicker start, TimePicker end, boolean isChecked,
                                    CheckBox[] checkBoxes, NewJobDialog fragment) {
 
-        MuteJobsModel.addMuteJob(start,end, isChecked, checkBoxes, mViewModel);
+        MuteJobsModel.addMuteJob(startDayOffset, endDayOffset, start,end, isChecked, checkBoxes, mViewModel,this);
         fragment.dismiss();
     }
 

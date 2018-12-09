@@ -29,7 +29,7 @@ public class JobsAdapter extends RecyclerView.Adapter<JobsAdapter.JobsViewHolder
     }
 
     public interface OnJobClickListener{
-        void onJobClick();
+        void onJobClick(int position);
     }
 
     @NonNull
@@ -57,13 +57,8 @@ public class JobsAdapter extends RecyclerView.Adapter<JobsAdapter.JobsViewHolder
         startCalendar.setTimeInMillis(job.getStartTime());
         endCalendar.setTimeInMillis(job.getEndTime());
 
-        holder.startDateTV.setText(formatMillis(startCalendar));
-        holder.endDateTV.setText(formatMillis(endCalendar));
+        holder.dateTV.setText(formatMillis(startCalendar) + " - " +formatMillis(endCalendar));
         holder.silentType.setText("Personal");
-        holder.repeatModeTV.setText(job.getRepeatMode()+"");
-
-        holder.repeatModeTV.setOnClickListener(view -> mJobClickListener.onJobClick());
-
     }
 
     public static String formatMillis(Calendar calendar) {
@@ -95,16 +90,12 @@ public class JobsAdapter extends RecyclerView.Adapter<JobsAdapter.JobsViewHolder
 
     public class JobsViewHolder extends RecyclerView.ViewHolder {
 
-        TextView startDateTV;
-        TextView endDateTV;
-        TextView repeatModeTV;
+        TextView dateTV;
         TextView silentType;
 
         public JobsViewHolder(View itemView) {
             super(itemView);
-            startDateTV = itemView.findViewById(R.id.adapter_start_date);
-            endDateTV = itemView.findViewById(R.id.adapter_end_date);
-            repeatModeTV = itemView.findViewById(R.id.adapter_repeat_mode);
+            dateTV = itemView.findViewById(R.id.adapter_date);
             silentType = itemView.findViewById(R.id.adapter_silent_type);
         }
     }

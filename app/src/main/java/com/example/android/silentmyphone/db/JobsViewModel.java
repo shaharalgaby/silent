@@ -25,7 +25,7 @@ public class JobsViewModel extends AndroidViewModel {
         return mAllJobs;
     }
 
-    public LiveData<MuteJob> getJobById(long id){
+    public MuteJob getJobById(long id){
         return mRepository.getJobById(id);
     }
 

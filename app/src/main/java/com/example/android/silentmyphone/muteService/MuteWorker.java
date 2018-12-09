@@ -1,27 +1,17 @@
 package com.example.android.silentmyphone.muteService;
 
 import android.app.Application;
-import android.arch.lifecycle.LiveData;
-import android.arch.lifecycle.ViewModelProviders;
 import android.content.Context;
 import android.media.AudioManager;
-import android.os.Build;
-import android.os.VibrationEffect;
-import android.os.Vibrator;
 import android.support.annotation.NonNull;
 import android.util.Log;
-import android.widget.Toast;
-
 import com.example.android.silentmyphone.MuteJob;
 import com.example.android.silentmyphone.db.JobsViewModel;
+import com.example.android.silentmyphone.utils.CalendarUtils;
 import com.example.android.silentmyphone.utils.NotificationsUtils;
-
-import androidx.work.Data;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
-
 import static android.content.Context.AUDIO_SERVICE;
-import static android.content.Context.VIBRATOR_SERVICE;
 
 public class MuteWorker extends Worker {
 
@@ -40,38 +30,48 @@ public class MuteWorker extends Worker {
     @Override
     public Result doWork() {
 
-        Log.i(TAG,"start the mute work");
+        Log.i(TAG,"start the mute work at " + CalendarUtils.getPrettyHour(System.currentTimeMillis()));
 
         Context applicationContext = getApplicationContext();
 
-//        JobsViewModel viewModel = new JobsViewModel((Application)applicationContext);
-//        LiveData<MuteJob> muteWorker = viewModel.getJobById(getInputData().getLong("jobid",0));
-//        job = muteWorker.getValue();
+        long jobId = getInputData().getLong(MuteJobsModel.JOBID,0);
+        JobsViewModel viewModel = new JobsViewModel((Application)applicationContext);
+        job = viewModel.getJobById(jobId);
+
+        Log.i(TAG,"The job id is: " + job.getId() +", repeat mode = " + job.getRepeatMode() +
+        ", should prepare for repeat = " +  job.getIsFirstTimeEnd() + job.getIsFirstTimeStart());
+
 
         try {
-            AudioManager audioManager = (AudioManager) applicationContext.getSystemService(AUDIO_SERVICE);
-            //maxVolume = audioManager.getStreamVolume(AudioManager.STREAM_RING);
-            audioManager.setRingerMode(AudioManager.RINGER_MODE_SILENT);
-            vibratePhone();
+            if(MuteJobsModel.shouldWorkToday(job,"mute")) {
+                Log.i(TAG,"Mute should work today");
+                AudioManager audioManager = (AudioManager) applicationContext.getSystemService(AUDIO_SERVICE);
+                if(audioManager.getRingerMode() != AudioManager.RINGER_MODE_SILENT) {
+                    Log.i(TAG,"Silenting phone");
+                    audioManager.setRingerMode(AudioManager.RINGER_MODE_SILENT);
+                    NotificationsUtils.vibratePhone(getApplicationContext());
+                } else {
+                    Log.i(TAG,"Phone is already silent.");
+                }
+            }
 
-//            NotificationsUtils.sendMuteNotification(applicationContext,job);
+            //Prepare next Jobs if needed
+            if(job.getRepeatMode() == MuteJob.MODE_REPEAT && job.getIsFirstTimeStart() == 0) {
+                Log.i(TAG,"Preparing next mutes");
+                job.setIsFirstTimeStart(1);
+                viewModel.update(job);
+                MuteJobsModel.prepareDailyJobs(MuteJobsModel.WORK_MUTE, job);
+            } else {
+                Log.i(TAG,"Repeated request is already on.");
+            }
+
+            NotificationsUtils.sendMuteNotification(getApplicationContext(),job,"mute");
+            Log.i(TAG, "Success with mute");
             return Result.SUCCESS;
+
         } catch (Throwable e) {
             Log.i(TAG,e.getMessage());
             return  Result.FAILURE;
-        }
-
-    }
-
-
-    void vibratePhone(){
-        Vibrator v = (Vibrator) getApplicationContext().getSystemService(VIBRATOR_SERVICE);
-        // Vibrate for 500 milliseconds
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            v.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE));
-        } else {
-            //deprecated in API 26
-            v.vibrate(50);
         }
     }
 }
