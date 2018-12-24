@@ -23,6 +23,10 @@ public class JobsRepository {
         return mAllJobs;
     }
 
+    List<MuteJob> getJobs() {
+        return mJobsDao.getJobs();
+    }
+
     void insert (MuteJob myJob){
         new insertAsyncTask(mJobsDao).execute(myJob);
     }
@@ -35,7 +39,7 @@ public class JobsRepository {
         new updateAsyncTask(mJobsDao).execute(myJob);
     }
 
-    MuteJob getJobById(long id){
+    MuteJob getJobById(String id){
         return mJobsDao.getJobById(id);
     }
 

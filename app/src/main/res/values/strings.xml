@@ -13,4 +13,11 @@
     <string name="sunday">Sunday</string>
     <string name="channel_name">my_channel</string>
     <string name="channel_description">channel description</string>
+    <string name="local_service_started">1234</string>
+    <string name="local_service_label">Sync service</string>
+    <string name="local_calendar">Local calendar</string>
+    <string name="today">Today</string>
+    <string name="tommorow">Tommorow</string>
+    <string name="action_setting">Settings</string>
+    <string name="action_sync_calendar">Sync with calendars</string>
 </resources>

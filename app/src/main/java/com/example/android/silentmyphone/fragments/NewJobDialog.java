@@ -3,6 +3,7 @@ package com.example.android.silentmyphone.fragments;
 import android.annotation.SuppressLint;
 import android.app.Dialog;
 import android.app.DialogFragment;
+import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
@@ -29,15 +30,17 @@ public class NewJobDialog extends DialogFragment {
     CheckBox mIsRepeatCheckbox;
     CheckBox[] mDaysCheckBoxes;
     JobsViewModel viewModel;
+    Context context;
 
     public NewJobDialog(){}
 
     @SuppressLint("ValidFragment")
-    public NewJobDialog(OnSetJobBtnClicked listener, MuteJob job, JobsViewModel viewModel){
+    public NewJobDialog(OnSetJobBtnClicked listener, MuteJob job, JobsViewModel viewModel, Context context){
         super();
         this.listener = listener;
         this.job = job;
         this.viewModel = viewModel;
+        this.context = context;
     }
 
     @Override
@@ -142,7 +145,7 @@ public class NewJobDialog extends DialogFragment {
 
         setBtn.setOnClickListener(view1 -> {
             if(job != null) {
-                MuteJobsModel.removeJob(job,viewModel,getContext());
+                MuteJobsModel.removeJob(job,viewModel,context);
             }
             listener.onSetJobBtnClicked
                     (dayPickerStart.getValue(),dayPickerEnd.getValue(),

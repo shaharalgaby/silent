@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <application
         android:allowBackup="true"
@@ -15,18 +16,14 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <receiver
-            android:name=".EventChangeReceiver">
-            <intent-filter>
-                <action android:name="android.intent.action.PROVIDER_CHANGED"/>
-                <data android:scheme="content"/>
-                <data android:host="com.android.calendar"/>
-            </intent-filter>
-        </receiver>
-
         <service android:name=".SyncWithCalendarService"
             android:permission="android.permission.BIND_JOB_SERVICE"
             android:exported="true"/>
+
+        <service android:name=".SyncService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="true"
+            />
 
         <activity android:name=".MainActivity">
             <intent-filter>

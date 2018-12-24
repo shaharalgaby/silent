@@ -36,8 +36,8 @@ public class NotificationsUtils {
 
         NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
 
-        int notificationId = (int)job.getId();
-        notificationManager.notify(notificationId, mBuilder.build());
+        String notificationId = job.getId();
+        notificationManager.notify(Integer.parseInt(notificationId), mBuilder.build());
     }
 
     public static void createNotificationChannel(Context context) {

@@ -8,6 +8,7 @@ import android.util.Log;
 import com.example.android.silentmyphone.MuteJob;
 import com.example.android.silentmyphone.db.JobsViewModel;
 import com.example.android.silentmyphone.utils.CalendarUtils;
+import com.example.android.silentmyphone.utils.ClientConfig;
 import com.example.android.silentmyphone.utils.NotificationsUtils;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
@@ -34,7 +35,7 @@ public class UnmuteWorker extends Worker {
 
         Context applicationContext = getApplicationContext();
 
-        long jobid = getInputData().getLong(MuteJobsModel.JOBID,0);
+        String jobid = getInputData().getString(MuteJobsModel.JOBID);
         JobsViewModel viewModel = new JobsViewModel((Application)applicationContext);
         job = viewModel.getJobById(jobid);
 
@@ -61,6 +62,12 @@ public class UnmuteWorker extends Worker {
 
             NotificationsUtils.sendMuteNotification(getApplicationContext(),job,"unmute");
             Log.i(TAG, "Success with unmute");
+            if(job.getRepeatMode() == MuteJob.MODE_ONE_TIME || job.isBusiness()) {
+                ClientConfig clientConfig = new ClientConfig(applicationContext);
+                if(clientConfig.isDeleteFinishJobs()) {
+                    viewModel.delete(job);
+                }
+            }
             return Result.SUCCESS;
 
         } catch (Throwable throwable) {

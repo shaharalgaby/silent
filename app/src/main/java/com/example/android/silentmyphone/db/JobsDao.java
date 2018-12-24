@@ -26,5 +26,8 @@ public interface JobsDao {
     LiveData<List<MuteJob>> getAllJobs();
 
     @Query("SELECT * from "+MuteJob.ROOM_TABLE_NAME+" WHERE id =:id")
-    MuteJob  getJobById(long id);
+    MuteJob  getJobById(String id);
+
+    @Query("SELECT * from " + MuteJob.ROOM_TABLE_NAME)
+    List<MuteJob> getJobs();
 }

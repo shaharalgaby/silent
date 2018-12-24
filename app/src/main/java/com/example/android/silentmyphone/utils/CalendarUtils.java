@@ -1,8 +1,10 @@
 package com.example.android.silentmyphone.utils;
 
+import android.content.Context;
 import android.util.Log;
 
 import com.example.android.silentmyphone.MuteJob;
+import com.example.android.silentmyphone.R;
 
 import java.util.Calendar;
 import java.util.Locale;
@@ -49,6 +51,21 @@ public class CalendarUtils {
 
     public static String getPrettyHourAndDate (long millis) {
         return getPrettyHour(millis)+ ", " + getPrettyDate(millis);
+    }
+
+    public static String getDayRepresentation(long millis, Context context) {
+        Calendar event = Calendar.getInstance();
+        event.setTimeInMillis(millis);
+
+        Calendar today = Calendar.getInstance();
+
+        if (event.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)) {
+            return context.getResources().getString(R.string.today);
+        } else if(event.get(Calendar.DAY_OF_YEAR)-1 == today.get(Calendar.DAY_OF_YEAR)) {
+            return context.getResources().getString(R.string.tommorow);
+        } else {
+            return daysNames[event.get(Calendar.DAY_OF_WEEK)-1];
+        }
     }
 
     public static boolean isBefore(long startHour, long endHour) {

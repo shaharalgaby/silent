@@ -25,7 +25,7 @@ public class JobsViewModel extends AndroidViewModel {
         return mAllJobs;
     }
 
-    public MuteJob getJobById(long id){
+    public MuteJob getJobById(String id){
         return mRepository.getJobById(id);
     }
 
@@ -40,6 +40,8 @@ public class JobsViewModel extends AndroidViewModel {
     public void update(MuteJob job) {
         mRepository.update(job);
     }
+
+    public List<MuteJob> getJobs(){return mRepository.getJobs();}
 
 }
 

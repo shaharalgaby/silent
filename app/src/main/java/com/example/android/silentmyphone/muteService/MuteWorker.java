@@ -34,7 +34,7 @@ public class MuteWorker extends Worker {
 
         Context applicationContext = getApplicationContext();
 
-        long jobId = getInputData().getLong(MuteJobsModel.JOBID,0);
+        String jobId = getInputData().getString(MuteJobsModel.JOBID);
         JobsViewModel viewModel = new JobsViewModel((Application)applicationContext);
         job = viewModel.getJobById(jobId);
 

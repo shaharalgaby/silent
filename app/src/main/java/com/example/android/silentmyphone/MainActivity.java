@@ -1,17 +1,13 @@
 package com.example.android.silentmyphone;
 
 import android.Manifest;
-import android.app.Activity;
 import android.app.FragmentManager;
 import android.app.NotificationManager;
 import android.arch.lifecycle.ViewModelProviders;
-import android.content.ContentProvider;
-import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.support.annotation.NonNull;
-import android.support.annotation.RequiresPermission;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -19,8 +15,11 @@ import android.os.Bundle;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.Toolbar;
 import android.support.v7.widget.helper.ItemTouchHelper;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.TimePicker;
@@ -29,6 +28,7 @@ import com.example.android.silentmyphone.db.JobsViewModel;
 import com.example.android.silentmyphone.fragments.NewJobDialog;
 import com.example.android.silentmyphone.muteService.MuteJobsModel;
 import com.example.android.silentmyphone.utils.NotificationsUtils;
+import com.example.android.silentmyphone.utils.ServiceUtils;
 
 import java.util.ArrayList;
 
@@ -40,15 +40,16 @@ public class MainActivity extends AppCompatActivity implements JobsAdapter.OnJob
     private RecyclerView mRecyclerView;
     private JobsAdapter mAdapter;
     private JobsViewModel mViewModel;
-    private FloatingActionButton mAddBtn;
     private FragmentManager fragmentManager;
+    private Menu mMenu;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.coordinated_main_activity);
 
-        mAddBtn = findViewById(R.id.floating_btn);
+        Toolbar mToolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(mToolbar);
 
         initViewModel();
 
@@ -60,7 +61,6 @@ public class MainActivity extends AppCompatActivity implements JobsAdapter.OnJob
 
         checkForPermissions();
         NotificationsUtils.createNotificationChannel(this);
-        checkCalendarPermission();
     }
 
     void checkCalendarPermission() {
@@ -71,9 +71,32 @@ public class MainActivity extends AppCompatActivity implements JobsAdapter.OnJob
                             new String[]{Manifest.permission.READ_CALENDAR},
                             200);
         } else {
+            ServiceUtils.setUriObserver(this);
             syncWithCalendar();
-            //ReadCalendar.readCalendar(this);
         }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        this.mMenu = menu;
+        getMenuInflater().inflate(R.menu.main_menu,menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+        switch (id) {
+            case R.id.action_settings:
+                break;
+            case R.id.action_sync:
+                syncJobs(null);
+        }
+
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -81,8 +104,8 @@ public class MainActivity extends AppCompatActivity implements JobsAdapter.OnJob
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         switch (requestCode){
             case 200:
+                ServiceUtils.setUriObserver(this);
                 syncWithCalendar();
-                //ReadCalendar.readCalendar(this);
                 break;
         }
     }
@@ -151,38 +174,40 @@ public class MainActivity extends AppCompatActivity implements JobsAdapter.OnJob
     @Override
     public void onJobClick(int position) {
         MuteJob job = mAdapter.getmJobsList().get(position);
-        NewJobDialog newFragment = new NewJobDialog(this, job,mViewModel);
+        NewJobDialog newFragment = new NewJobDialog(this, job,mViewModel, this);
         newFragment.show(fragmentManager, "datePicker");
     }
 
     public void addJobs(View view) {
-        showAddJobDialog();
-    }
-
-    void showAddJobDialog(){
-        NewJobDialog newFragment = new NewJobDialog(this, null,mViewModel);
+        NewJobDialog newFragment = new NewJobDialog(this, null,mViewModel, this);
         newFragment.show(fragmentManager, "datePicker");
     }
 
     @Override
     public void onSetJobBtnClicked(int startDayOffset, int endDayOffset, TimePicker start, TimePicker end, boolean isChecked,
                                    CheckBox[] checkBoxes, NewJobDialog fragment) {
-
-        MuteJobsModel.addMuteJob(startDayOffset, endDayOffset, start,end, isChecked, checkBoxes, mViewModel,this);
+        MuteJobsModel.addMuteJob(null,startDayOffset,
+                endDayOffset, start,end, isChecked, checkBoxes,this);
         fragment.dismiss();
     }
 
     public void syncWithCalendar(){
-        Intent mServiceIntent = new Intent();
 
-        SyncWithCalendarService.enqueueWork(
-                this,
-                SyncWithCalendarService.class,
-                200,
-                mServiceIntent);
+        ArrayList<UserCalendar> calendars = ServiceUtils.getCalendars(this);
+        ServiceUtils.buildCalendarsDialog(calendars,this);
+    }
+
+    public void syncJobs(View view) {
+        log("syncing calendar");
+        checkCalendarPermission();
     }
 
     public void log(String s) {
         Log.i(TAG,s);
     }
+
 }
+
+
+
+
