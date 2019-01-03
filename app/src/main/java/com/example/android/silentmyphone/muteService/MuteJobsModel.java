@@ -1,26 +1,23 @@
 package com.example.android.silentmyphone.muteService;
 
 import android.annotation.SuppressLint;
+import android.app.AlarmManager;
 import android.app.Application;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build;
-import android.provider.CalendarContract;
 import android.util.Log;
 import android.widget.CheckBox;
 import android.widget.TimePicker;
-import android.widget.Toast;
 
 import com.example.android.silentmyphone.MuteJob;
 import com.example.android.silentmyphone.db.JobsViewModel;
 import com.example.android.silentmyphone.utils.CalendarUtils;
-import com.example.android.silentmyphone.utils.NotificationsUtils;
 
 import java.util.Calendar;
-import java.util.concurrent.TimeUnit;
+
 import androidx.work.Data;
-import androidx.work.ExistingPeriodicWorkPolicy;
-import androidx.work.OneTimeWorkRequest;
-import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
 
 public class MuteJobsModel {
@@ -35,36 +32,11 @@ public class MuteJobsModel {
 
     public static void addJob(MuteJob job,Context context) {
 
-        boolean isChecked = job.getRepeatDays() != null;
         JobsViewModel mViewModel = new JobsViewModel((Application)context.getApplicationContext());
-
         mViewModel.insert(job);
 
-        long startDelay = job.getStartTime() - System.currentTimeMillis();
-        long endDelay = job.getEndTime() - System.currentTimeMillis();
-
-        Calendar start = Calendar.getInstance();
-        start.setTimeInMillis(job.getStartTime());
-        Calendar end = Calendar.getInstance();
-        end.setTimeInMillis(job.getEndTime());
-
-        if(isChecked && start.get(Calendar.HOUR_OF_DAY) > end.get(Calendar.HOUR_OF_DAY)) {
-            //user set one alarm for tomorrow
-            endDelay += DAY_IN_MILLIS;
-        }
-
-        if(!isChecked && startDelay > endDelay) {
-            try {
-                NotificationsUtils.showAlertDialog("Can't add it",
-                        "Start cannot come after the end !",context);
-                mViewModel.delete(job);
-                throw new Exception("Start cannot come after the end !");
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        } else {
-            addJob(job, startDelay, endDelay);
-        }
+        //TODO check if input is valid
+        addAlaramJob(job,context);
     }
 
     //helper method to add a job.
@@ -113,89 +85,98 @@ public class MuteJobsModel {
                 isChecked ? repeatDays : null);
 
         addJob(job,context);
-
     }
 
-    //This is the actual method to add a job.
-    private static void addJob(MuteJob job, long startDelay, long endDelay) {
+    public static void addAlaramJob(MuteJob job, Context context) {
+        Log.i(TAG,"Adding the alarm");
 
-        Log.i(TAG,"Adding the job with delay "+startDelay+", "+endDelay);
+        Intent muteIntent = new Intent(context, MuteWorker.class);
+        muteIntent.putExtra(JOBID,job.getId());
+        muteIntent.setAction(getJobMuteAlarmId(job));
+        PendingIntent pIntent = PendingIntent.getService(context, 0, muteIntent, 0);
+        AlarmManager alarm = (AlarmManager)context.getSystemService(Context.ALARM_SERVICE);
+        if(Build.VERSION.SDK_INT >= 23)
+            alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,job.getStartTime(),pIntent);
+        else
+            alarm.setExact(AlarmManager.RTC_WAKEUP,job.getStartTime(),pIntent);
 
-        @SuppressLint("RestrictedApi") //Temporary solution, apparently a bug
-        Data data = new Data.Builder().putString(JOBID,job.getId()).build();
-
-        //Assign the mute work.
-        OneTimeWorkRequest muteWorkRequest =
-                new OneTimeWorkRequest.Builder(MuteWorker.class)
-                .addTag("mute"+job.getId())
-                .setInitialDelay(startDelay,TimeUnit.MILLISECONDS)
-                .setInputData(data)
-                .build();
-        WorkManager.getInstance().enqueue(muteWorkRequest);
-
-        //Assign the unmute work.
-        OneTimeWorkRequest unmuteWorkRequest =
-                new OneTimeWorkRequest.Builder(UnmuteWorker.class)
-                .addTag("unmute"+job.getId())
-                .setInitialDelay(endDelay, TimeUnit.MILLISECONDS)
-                .setInputData(data)
-                .build();
-        WorkManager.getInstance().enqueue(unmuteWorkRequest);
+        Intent unmuteIntent = new Intent(context,UnmuteWorker.class);
+        unmuteIntent.putExtra(JOBID,job.getId());
+        unmuteIntent.setAction(getJobUnmuteAlarmId(job));
+        PendingIntent pendingIntent = PendingIntent.getService(context,0,unmuteIntent,0);
+        if(Build.VERSION.SDK_INT >= 23)
+            alarm.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,job.getEndTime(),pendingIntent);
+        else
+            alarm.setExact(AlarmManager.RTC_WAKEUP,job.getEndTime(),pendingIntent);
     }
 
     public static void removeJob(MuteJob job, JobsViewModel viewModel,Context context) {
         viewModel.delete(job);
-        WorkManager workManager = WorkManager.getInstance();
-        workManager.cancelAllWorkByTag("mute"+job.getId());
-        workManager.cancelAllWorkByTag("unmute" + job.getId());
-        workManager.cancelUniqueWork("muteperiodic"+job.getId());
-        workManager.cancelUniqueWork("unmuteperiodic"+job.getId());
+        removeAlarms(job,context);
     }
 
     public static void updateJob(MuteJob job,Context context) {
         JobsViewModel viewModel = new JobsViewModel((Application)context.getApplicationContext());
         viewModel.update(job);
-        WorkManager workManager = WorkManager.getInstance();
-        workManager.cancelAllWorkByTag("mute"+job.getId());
-        workManager.cancelAllWorkByTag("unmute" + job.getId());
-        workManager.cancelUniqueWork("muteperiodic"+job.getId());
-        workManager.cancelUniqueWork("unmuteperiodic"+job.getId());
-        addJob(job,context);
+        removeAlarms(job,context);
+        addAlaramJob(job,context);
     }
 
-    static void prepareDailyJobs(String jobType, MuteJob job) {
-        @SuppressLint("RestrictedApi") //Temporary solution, apparently a bug
-                Data data = new Data.Builder().putString(JOBID,job.getId()).build();
+    public static void removeAlarms(MuteJob job, Context context) {
+        Intent muteIntent = new Intent(context,MuteWorker.class);
+        muteIntent.setAction(getJobMuteAlarmId(job));
+        Intent unmuteIntent = new Intent(context,UnmuteWorker.class);
+        unmuteIntent.setAction(getJobUnmuteAlarmId(job));
 
-        PeriodicWorkRequest.Builder workRequest =
-                new PeriodicWorkRequest.Builder(MuteWorker.class,24,TimeUnit.HOURS)
-                        .addTag(jobType+job.getId())
-                        .setInputData(data);
+        AlarmManager alarm = (AlarmManager)context.getSystemService(Context.ALARM_SERVICE);
+        PendingIntent pIntent = PendingIntent.getService(context, 0, muteIntent, 0);
+        PendingIntent pendingIntent = PendingIntent.getService(context,0,unmuteIntent,0);
 
-        PeriodicWorkRequest work = workRequest.build();
-        WorkManager.getInstance()
-                .enqueueUniquePeriodicWork("muteperiodic"+job.getId(),ExistingPeriodicWorkPolicy.REPLACE, work);
+        alarm.cancel(pIntent);
+        alarm.cancel(pendingIntent);
     }
 
-    static boolean shouldWorkToday(MuteJob job, String work) {
+    static void updateJobTime(MuteJob job, Context context) {
 
-        if(job.getRepeatMode() == MuteJob.MODE_ONE_TIME)
-            return true;
+        JobsViewModel viewModel = new JobsViewModel((Application)context.getApplicationContext());
 
         Calendar nowCalendar = Calendar.getInstance();
         int today = nowCalendar.get(Calendar.DAY_OF_WEEK);
         Log.i(TAG,"Today is: " + today);
 
-        if(work.equals(WORK_MUTE)) {
-            return job.getRepeatDays()[(today + 5) % 7];
-        } else {
-            //unmute job
-            if (CalendarUtils.isBefore(job.getStartTime(), job.getEndTime()))
-                return job.getRepeatDays()[(today + 5) % 7];
-            else {
-                //return yesterday
-                return job.getRepeatDays()[(today+4) % 7 ];
+        int offset = 0;
+        boolean[] checked = job.getRepeatDays();
+
+        for(int i= (today + 6) % 7 ;i<8 ;i++) {
+            offset ++ ;
+            if(checked[i % 7]) {
+                break;
             }
         }
+
+        Log.i(TAG,"Offset is: " + offset);
+
+        Calendar calendar = Calendar.getInstance();
+
+        //Change the job start time
+        calendar.setTimeInMillis(job.getStartTime());
+        calendar.set(Calendar.DAY_OF_YEAR, calendar.get(Calendar.DAY_OF_YEAR + offset));
+        job.setStartTime(calendar.getTimeInMillis());
+
+        //change the job end time
+        calendar.setTimeInMillis(job.getEndTime());
+        calendar.set(Calendar.DAY_OF_YEAR, calendar.get(Calendar.DAY_OF_YEAR + offset));
+        job.setEndTime(calendar.getTimeInMillis());
+
+        viewModel.update(job);
+    }
+
+    public static String getJobMuteAlarmId(MuteJob job) {
+        return job.getId()+"mute";
+    }
+
+    public static String getJobUnmuteAlarmId(MuteJob job) {
+
+        return job.getId()+"unmute";
     }
 }

@@ -1,78 +1,71 @@
 package com.example.android.silentmyphone.muteService;
 
 import android.app.Application;
+import android.app.Service;
 import android.content.Context;
+import android.content.Intent;
 import android.media.AudioManager;
-import android.support.annotation.NonNull;
+import android.os.AsyncTask;
+import android.os.IBinder;
+import android.support.annotation.Nullable;
 import android.util.Log;
 import com.example.android.silentmyphone.MuteJob;
 import com.example.android.silentmyphone.db.JobsViewModel;
 import com.example.android.silentmyphone.utils.CalendarUtils;
 import com.example.android.silentmyphone.utils.ClientConfig;
 import com.example.android.silentmyphone.utils.NotificationsUtils;
-import androidx.work.Worker;
-import androidx.work.WorkerParameters;
-import static android.content.Context.AUDIO_SERVICE;
 
-public class UnmuteWorker extends Worker {
+public class UnmuteWorker extends Service {
 
     private static final String TAG = UnmuteWorker.class.getSimpleName();
     private MuteJob job;
+    String jobid;
 
-    public UnmuteWorker(@NonNull Context context,
-                        @NonNull WorkerParameters workerParams) {
-        super(context, workerParams);
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+
+        Log.i(TAG,"Start the unmute work");
+
+        jobid = intent.getStringExtra(MuteJobsModel.JOBID);
+
+        MyAsyncTask task = new MyAsyncTask();
+        task.execute();
+
+        return super.onStartCommand(intent, flags, startId);
     }
 
-    /**
-     * Override this method to do your actual background processing.
-     */
-    @NonNull
+    @Nullable
     @Override
-    public Result doWork() {
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
 
-        Log.i(TAG,"start the unmute work at " + CalendarUtils.getPrettyHour(System.currentTimeMillis()));
+    private class MyAsyncTask extends AsyncTask<Void,Void,Void> {
 
-        Context applicationContext = getApplicationContext();
-
-        String jobid = getInputData().getString(MuteJobsModel.JOBID);
-        JobsViewModel viewModel = new JobsViewModel((Application)applicationContext);
-        job = viewModel.getJobById(jobid);
-
-        try {
-
-            if(MuteJobsModel.shouldWorkToday(job,MuteJobsModel.WORK_UNMUTE)) {
-                Log.i(TAG,"Unmute should work today");
-                AudioManager audioManager = (AudioManager) applicationContext.getSystemService(AUDIO_SERVICE);
+        @Override
+        protected Void doInBackground(Void... voids) {
+            try {
+                JobsViewModel viewModel = new JobsViewModel(getApplication());
+                job = viewModel.getJobById(jobid);
+                AudioManager audioManager = (AudioManager) getApplicationContext().getSystemService(AUDIO_SERVICE);
                 if(audioManager.getRingerMode() != AudioManager.RINGER_MODE_NORMAL) {
                     audioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
                     NotificationsUtils.vibratePhone(getApplicationContext());
                 } else {
                     Log.i(TAG,"Phone is already unmuted");
                 }
-            }
 
-            //Prepare next Jobs if needed
-            if(job.getRepeatMode() == MuteJob.MODE_REPEAT && job.getIsFirstTimeEnd() == 0) {
-                Log.i(TAG,"Preparing next unmutes");
-                job.setIsFirstTimeEnd(1);
-                viewModel.update(job);
-                MuteJobsModel.prepareDailyJobs(MuteJobsModel.WORK_MUTE, job);
-            }
-
-            NotificationsUtils.sendMuteNotification(getApplicationContext(),job,"unmute");
-            Log.i(TAG, "Success with unmute");
-            if(job.getRepeatMode() == MuteJob.MODE_ONE_TIME || job.isBusiness()) {
-                ClientConfig clientConfig = new ClientConfig(applicationContext);
-                if(clientConfig.isDeleteFinishJobs()) {
+                NotificationsUtils.sendMuteNotification(getApplicationContext(),job,"unmute");
+                Log.i(TAG, "Success with unmute");
+                if(job.getRepeatMode() == MuteJob.MODE_ONE_TIME || job.isBusiness()) {
                     viewModel.delete(job);
                 }
-            }
-            return Result.SUCCESS;
 
-        } catch (Throwable throwable) {
-            Log.i(TAG,throwable.getMessage());
-            return Result.FAILURE;
+            } catch (Throwable throwable) {
+                Log.i(TAG,throwable.getMessage());
+            }
+
+            return null;
         }
     }
 }

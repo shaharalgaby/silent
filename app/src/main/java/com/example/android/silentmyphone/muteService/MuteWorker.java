@@ -1,51 +1,56 @@
 package com.example.android.silentmyphone.muteService;
 
 import android.app.Application;
+import android.app.Service;
 import android.content.Context;
+import android.content.Intent;
 import android.media.AudioManager;
-import android.support.annotation.NonNull;
+import android.os.AsyncTask;
+import android.os.IBinder;
+import android.support.annotation.Nullable;
 import android.util.Log;
 import com.example.android.silentmyphone.MuteJob;
 import com.example.android.silentmyphone.db.JobsViewModel;
 import com.example.android.silentmyphone.utils.CalendarUtils;
 import com.example.android.silentmyphone.utils.NotificationsUtils;
-import androidx.work.Worker;
-import androidx.work.WorkerParameters;
-import static android.content.Context.AUDIO_SERVICE;
 
-public class MuteWorker extends Worker {
+public class MuteWorker extends Service {
 
     private final static String TAG = MuteWorker.class.getSimpleName();
     private MuteJob job;
+    String jobId;
 
-    public MuteWorker(@NonNull Context context,
-                      @NonNull WorkerParameters workerParams) {
-        super(context, workerParams);
-    }
-
-    /**
-     * Override this method to do your actual background processing.
-     */
-    @NonNull
     @Override
-    public Result doWork() {
+    public int onStartCommand(Intent intent, int flags, int startId) {
 
         Log.i(TAG,"start the mute work at " + CalendarUtils.getPrettyHour(System.currentTimeMillis()));
 
-        Context applicationContext = getApplicationContext();
+        jobId = intent.getStringExtra(MuteJobsModel.JOBID);
 
-        String jobId = getInputData().getString(MuteJobsModel.JOBID);
-        JobsViewModel viewModel = new JobsViewModel((Application)applicationContext);
-        job = viewModel.getJobById(jobId);
+        MyAsyncTask task = new MyAsyncTask();
+        task.execute();
 
-        Log.i(TAG,"The job id is: " + job.getId() +", repeat mode = " + job.getRepeatMode() +
-        ", should prepare for repeat = " +  job.getIsFirstTimeEnd() + job.getIsFirstTimeStart());
+        return START_STICKY;
+    }
 
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
 
-        try {
-            if(MuteJobsModel.shouldWorkToday(job,"mute")) {
+    private class MyAsyncTask extends AsyncTask<Void,Void,Void> {
+
+        @Override
+        protected Void doInBackground(Void... voids) {
+
+            try {
+
+                JobsViewModel viewModel = new JobsViewModel(getApplication());
+                job = viewModel.getJobById(jobId);
+
                 Log.i(TAG,"Mute should work today");
-                AudioManager audioManager = (AudioManager) applicationContext.getSystemService(AUDIO_SERVICE);
+                AudioManager audioManager = (AudioManager) getApplicationContext().getSystemService(AUDIO_SERVICE);
                 if(audioManager.getRingerMode() != AudioManager.RINGER_MODE_SILENT) {
                     Log.i(TAG,"Silenting phone");
                     audioManager.setRingerMode(AudioManager.RINGER_MODE_SILENT);
@@ -53,25 +58,23 @@ public class MuteWorker extends Worker {
                 } else {
                     Log.i(TAG,"Phone is already silent.");
                 }
+
+                //Prepare next Jobs if needed
+                if(job.getRepeatMode() == MuteJob.MODE_REPEAT) {
+                    Log.i(TAG,"Preparing next mutes");
+                    MuteJobsModel.updateJobTime(job,getApplicationContext());
+                    MuteJobsModel.addAlaramJob(job,getApplicationContext());
+                }
+
+                NotificationsUtils.sendMuteNotification(getApplicationContext(),job,"mute");
+                Log.i(TAG, "Success with mute");
+
+            } catch (Throwable e) {
+                Log.i(TAG,e.getMessage());
             }
-
-            //Prepare next Jobs if needed
-            if(job.getRepeatMode() == MuteJob.MODE_REPEAT && job.getIsFirstTimeStart() == 0) {
-                Log.i(TAG,"Preparing next mutes");
-                job.setIsFirstTimeStart(1);
-                viewModel.update(job);
-                MuteJobsModel.prepareDailyJobs(MuteJobsModel.WORK_MUTE, job);
-            } else {
-                Log.i(TAG,"Repeated request is already on.");
-            }
-
-            NotificationsUtils.sendMuteNotification(getApplicationContext(),job,"mute");
-            Log.i(TAG, "Success with mute");
-            return Result.SUCCESS;
-
-        } catch (Throwable e) {
-            Log.i(TAG,e.getMessage());
-            return  Result.FAILURE;
+            return null;
         }
     }
 }
+
+

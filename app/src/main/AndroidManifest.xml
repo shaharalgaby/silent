@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
 
     <application
         android:allowBackup="true"
@@ -21,6 +22,16 @@
             android:exported="true"/>
 
         <service android:name=".SyncService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="true"
+            />
+
+        <service android:name=".muteService.MuteWorker"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="true"
+            />
+
+        <service android:name=".muteService.UnmuteWorker"
             android:permission="android.permission.BIND_JOB_SERVICE"
             android:exported="true"
             />

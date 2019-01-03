@@ -24,8 +24,6 @@ public class MuteJob implements Parcelable {
     private String id;
     private long startTime;
     private long endTime;
-    private int isFirstTimeStart;
-    private int isFirstTimeEnd;
     private int repeatMode;
     private boolean[] repeatDays;
     private String eventLocation;
@@ -46,8 +44,6 @@ public class MuteJob implements Parcelable {
         this.endTime = end;
         this.repeatMode = repeartMode;
         this.repeatDays = repeatDays;
-        this.isFirstTimeStart = 0;
-        this.isFirstTimeEnd = 0;
     }
 
     public boolean isBusiness() {
@@ -62,8 +58,6 @@ public class MuteJob implements Parcelable {
         id = in.readString();
         startTime = in.readLong();
         endTime = in.readLong();
-        isFirstTimeStart = in.readInt();
-        isFirstTimeEnd = in.readInt();
         repeatMode = in.readInt();
         repeatDays = in.createBooleanArray();
         eventLocation = in.readString();
@@ -83,14 +77,6 @@ public class MuteJob implements Parcelable {
         }
     };
 
-    public int getIsFirstTimeStart() {
-        return isFirstTimeStart;
-    }
-
-    public void setIsFirstTimeStart(int firstTimeStart) {
-        isFirstTimeStart = firstTimeStart;
-    }
-
     public void setEventLocation(String eventLocation){
         this.eventLocation = eventLocation;
     }
@@ -105,14 +91,6 @@ public class MuteJob implements Parcelable {
 
     public String getEventTitle () {
         return eventTitle;
-    }
-
-    public int getIsFirstTimeEnd() {
-        return isFirstTimeEnd;
-    }
-
-    public void setIsFirstTimeEnd(int firstTimeEnd) {
-        isFirstTimeEnd = firstTimeEnd;
     }
 
     public boolean[] getRepeatDays() {
@@ -163,8 +141,6 @@ public class MuteJob implements Parcelable {
         parcel.writeString(id);
         parcel.writeLong(startTime);
         parcel.writeLong(endTime);
-        parcel.writeInt(isFirstTimeStart);
-        parcel.writeInt(isFirstTimeEnd);
         parcel.writeInt(repeatMode);
         parcel.writeBooleanArray(repeatDays);
         parcel.writeString(eventLocation);
